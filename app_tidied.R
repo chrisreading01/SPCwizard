@@ -7,286 +7,317 @@ library(DT)
 
 ## Create SPC function
 spc <- function(
-    #function arguments
-    data
-    ,dates
-    ,improvement.direction = "increase"
-    ,target = NULL
-    ,trajectory = NULL
-    ,rebase = FALSE
-    ,data.as.percentages = FALSE
-    ,main.title = "SPC Chart"
-    ,x.title = "Date"
-    ,y.title = "Volume"
-    ,x.axis.breaks = length(data)/4
-    ,point.size = 4
-    ,return.table = FALSE
-    ,display.legend = FALSE
+  #function arguments
+  data
+  ,dates
+  ,improvement.direction = "increase"
+  ,target = NULL
+  ,trajectory = NULL
+  ,rebase = FALSE
+  ,data.as.percentages = FALSE
+  ,main.title = "SPC Chart"
+  ,x.title = "Date"
+  ,y.title = "Volume"
+  ,x.axis.breaks = length(data)/4
+  ,point.size = 4
+  ,return.table = FALSE
+  ,display.legend = FALSE
 ) {
-    # Colour Palette ----
-    .darkgrey = "#7B7D7D"
-    .orange = "#fab428"
-    .skyblue = "#289de0"
-    .purple = "#361475"
-    .red = "#de1b1b"
-    
-    # Variables ----
-    x <- data
-    limitbreak <- 2.66
-    limitbreakclose <- (limitbreak/3)*2
-    xl <- length(x)
-    xn <- length(x) - 1
-    improvementdirection <- case_when(improvement.direction == "Decrease" ~ -1, TRUE ~ 1)
-    target <- if(!(is.null(target))) as.numeric(target) else rep(NA,xl)
-    trajectory <- if(!(is.null(trajectory))) trajectory else rep(NA,xl)
-    plottitle <- main.title
-    xlabel <- x.title
-    ylabel <- y.title
-    xaxis <- as.Date(dates,"%d/%m/%Y")
-    
-    # Create Data Frame ----
-    df <- data.frame(
-        n = c(1:xl)
-        ,xaxislabels = xaxis
-        ,data = x
-        ,movingrange = abs(x - c(NA,x[1:xn]))
-        ,movingrangeaverage = mean(abs(x - c(NA,x[1:xn])),na.rm = TRUE)
-        ,mean = mean(x)
-        ,lpl = mean(x) - (limitbreak * mean(abs(x - c(NA,x[1:xn])),na.rm = TRUE))
-        ,upl = mean(x) + (limitbreak * mean(abs(x - c(NA,x[1:xn])),na.rm = TRUE))
-        ,outsidelimits = case_when(x > mean(x) + (limitbreak * mean(abs(x - c(NA,x[1:xn])),na.rm = TRUE)) ~ 1
-                                   ,x < mean(x) - (limitbreak * mean(abs(x - c(NA,x[1:xn])),na.rm = TRUE)) ~ 1
-                                   ,TRUE ~ 0
-        )
-        ,relativetomean = case_when(x > mean(x) ~ 1
-                                    ,x < mean(x) ~ -1
-                                    ,TRUE ~ 0
-        )
-        ,target = target
-        ,trajectory = as.numeric(trajectory)
-        ,upper2sigma = mean(x) + (limitbreakclose * mean(abs(x - lag(x,1)),na.rm = TRUE))
-        ,lower2sigma = mean(x) - (limitbreakclose * mean(abs(x - lag(x,1)),na.rm = TRUE))
+  # Colour Palette ----
+  .darkgrey = "#7B7D7D"
+  .orange = "#fab428"
+  .skyblue = "#289de0"
+  .purple = "#361475"
+  .red = "#de1b1b"
+
+  # Variables ----
+  x <- data
+  limitbreak <- 2.66
+  limitbreakclose <- (limitbreak/3)*2
+  xl <- length(x)
+  xn <- length(x) - 1
+  improvementdirection <- case_when(improvement.direction == "Decrease" ~ -1, TRUE ~ 1)
+  target <- if(!(is.null(target))) as.numeric(target) else rep(NA,xl)
+  trajectory <- if(!(is.null(trajectory))) trajectory else rep(NA,xl)
+  plottitle <- main.title
+  xlabel <- x.title
+  ylabel <- y.title
+  xaxis <- as.Date(dates,"%d/%m/%Y")
+
+  # Create Data Frame ----
+  df <- data.frame(
+    n = c(1:xl)
+    ,xaxislabels = xaxis
+    ,data = x
+    ,movingrange = abs(x - c(NA,x[1:xn]))
+    ,movingrangeaverage = mean(abs(x - c(NA,x[1:xn])),na.rm = TRUE)
+    ,mean = mean(x)
+    ,lpl = mean(x) - (limitbreak * mean(abs(x - c(NA,x[1:xn])),na.rm = TRUE))
+    ,upl = mean(x) + (limitbreak * mean(abs(x - c(NA,x[1:xn])),na.rm = TRUE))
+    ,outsidelimits = case_when(x > mean(x) + (limitbreak * mean(abs(x - c(NA,x[1:xn])),na.rm = TRUE)) ~ 1
+                               ,x < mean(x) - (limitbreak * mean(abs(x - c(NA,x[1:xn])),na.rm = TRUE)) ~ 1
+                               ,TRUE ~ 0
     )
-    
-    runrebase <- FALSE
-    if(rebase != FALSE) {rebase <- strsplit(rebase,";")[[1]]
-    runrebase <- TRUE}
-    if(runrebase)
-    {
-        lr <- length(rebase)
-        for(n in 1:lr) {
-            print(rebase[n])
-            newdata <- df$data[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y")]
-            print(newdata)
-            df$mean[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y")] <- mean(newdata)
-            df$lpl[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y")] <- mean(newdata) - (limitbreak * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE))
-            df$upl[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y")] <- mean(newdata) + (limitbreak * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE))
-            df$outsidelimits[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y")] <- case_when(newdata > mean(newdata) + (limitbreak * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE)) ~ 1
-                                                                                                   ,newdata < mean(newdata) - (limitbreak * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE)) ~ 1
-                                                                                                   ,TRUE ~ 0
-            )
-            df$relativetomean[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y")] <- case_when(newdata > mean(newdata) ~ 1
-                                                                                                    ,newdata < mean(newdata) ~ -1
-                                                                                                    ,TRUE ~ 0
-            )
-            df$upper2sigma[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y")] <- mean(newdata) + (limitbreakclose * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE))
-            df$lower2sigma[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y")] <- mean(newdata) - (limitbreakclose * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE))
-        }
+    ,relativetomean = case_when(x > mean(x) ~ 1
+                                ,x < mean(x) ~ -1
+                                ,TRUE ~ 0
+    )
+    ,target = target
+    ,trajectory = as.numeric(trajectory)
+    ,upper2sigma = mean(x) + (limitbreakclose * mean(abs(x - lag(x,1)),na.rm = TRUE))
+    ,lower2sigma = mean(x) - (limitbreakclose * mean(abs(x - lag(x,1)),na.rm = TRUE))
+  )
+
+  runrebase <- FALSE
+  if(rebase != FALSE) {rebase <- strsplit(rebase,";")[[1]]
+  runrebase <- TRUE}
+  if(runrebase)
+  {
+    lr <- length(rebase)
+    for(n in 0:lr) {
+      if(n == 0){
+        newdata <- df$data[xaxis < as.Date.character(rebase[n+1],format="%d/%m/%Y")]
+        df$mean[xaxis < as.Date.character(rebase[n+1],format="%d/%m/%Y")] <- mean(newdata)
+        df$lpl[xaxis < as.Date.character(rebase[n+1],format="%d/%m/%Y")] <- mean(newdata) - (limitbreak * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE))
+        df$upl[xaxis < as.Date.character(rebase[n+1],format="%d/%m/%Y")] <- mean(newdata) + (limitbreak * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE))
+        df$outsidelimits[xaxis < as.Date.character(rebase[n+1],format="%d/%m/%Y")] <- case_when(newdata > mean(newdata) + (limitbreak * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE)) ~ 1
+                                                                                               ,newdata < mean(newdata) - (limitbreak * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE)) ~ 1
+                                                                                               ,TRUE ~ 0
+        )
+        df$relativetomean[xaxis < as.Date.character(rebase[n+1],format="%d/%m/%Y")] <- case_when(newdata > mean(newdata) ~ 1
+                                                                                                ,newdata < mean(newdata) ~ -1
+                                                                                                ,TRUE ~ 0
+        )
+        df$upper2sigma[xaxis < as.Date.character(rebase[n+1],format="%d/%m/%Y")] <- mean(newdata) + (limitbreakclose * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE))
+        df$lower2sigma[xaxis < as.Date.character(rebase[n+1],format="%d/%m/%Y")] <- mean(newdata) - (limitbreakclose * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE))
+      } else if(n < lr) {
+      newdata <- df$data[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y") & xaxis < as.Date.character(rebase[n+1],format="%d/%m/%Y")]
+      df$mean[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y") & xaxis < as.Date.character(rebase[n+1],format="%d/%m/%Y")] <- mean(newdata)
+      df$lpl[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y") & xaxis < as.Date.character(rebase[n+1],format="%d/%m/%Y")] <- mean(newdata) - (limitbreak * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE))
+      df$upl[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y") & xaxis < as.Date.character(rebase[n+1],format="%d/%m/%Y")] <- mean(newdata) + (limitbreak * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE))
+      df$outsidelimits[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y") & xaxis < as.Date.character(rebase[n+1],format="%d/%m/%Y")] <- case_when(newdata > mean(newdata) + (limitbreak * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE)) ~ 1
+                                                                                             ,newdata < mean(newdata) - (limitbreak * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE)) ~ 1
+                                                                                             ,TRUE ~ 0
+      )
+      df$relativetomean[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y") & xaxis < as.Date.character(rebase[n+1],format="%d/%m/%Y")] <- case_when(newdata > mean(newdata) ~ 1
+                                                                                              ,newdata < mean(newdata) ~ -1
+                                                                                              ,TRUE ~ 0
+      )
+      df$upper2sigma[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y") & xaxis < as.Date.character(rebase[n+1],format="%d/%m/%Y")] <- mean(newdata) + (limitbreakclose * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE))
+      df$lower2sigma[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y") & xaxis < as.Date.character(rebase[n+1],format="%d/%m/%Y")] <- mean(newdata) - (limitbreakclose * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE))
+      } else {
+        newdata <- df$data[xaxis >= as.Date(rebase[n],format="%d/%m/%Y")]
+        df$mean[xaxis >= as.Date(rebase[n],format="%d/%m/%Y")] <- mean(newdata)
+        df$lpl[xaxis >= as.Date(rebase[n],format="%d/%m/%Y")] <- mean(newdata) - (limitbreak * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE))
+        df$upl[xaxis >= as.Date(rebase[n],format="%d/%m/%Y")] <- mean(newdata) + (limitbreak * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE))
+        df$outsidelimits[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y")] <- case_when(newdata > mean(newdata) + (limitbreak * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE)) ~ 1
+                                                                                                                                                          ,newdata < mean(newdata) - (limitbreak * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE)) ~ 1
+                                                                                                                                                          ,TRUE ~ 0
+        )
+        df$relativetomean[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y")] <- case_when(newdata > mean(newdata) ~ 1
+                                                                                                                                                           ,newdata < mean(newdata) ~ -1
+                                                                                                                                                           ,TRUE ~ 0
+        )
+        df$upper2sigma[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y")] <- mean(newdata) + (limitbreakclose * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE))
+        df$lower2sigma[xaxis >= as.Date.character(rebase[n],format="%d/%m/%Y")] <- mean(newdata) - (limitbreakclose * mean(abs(newdata - lag(newdata,1)),na.rm = TRUE))
+      }
     }
-    
-    df <- df %>%
-        mutate(closetolimits = case_when(data > upper2sigma & data <= upl ~ 1
-                                         ,data < lower2sigma & data >= lpl ~ -1
-                                         
-        )
-        ) %>%
-        mutate(sevenpointtrend = case_when(relativetomean == lag(relativetomean,1)
-                                           & relativetomean == lag(relativetomean,2)
-                                           & relativetomean == lag(relativetomean,3)
-                                           & relativetomean == lag(relativetomean,4)
-                                           & relativetomean == lag(relativetomean,5)
-                                           & relativetomean == lag(relativetomean,6)
-                                           ~ 1
-                                           ,TRUE ~ 0
-        )
-        ) %>%
-        mutate(partoftrend = case_when(sevenpointtrend == 1
-                                       | lead(sevenpointtrend,1) == 1
-                                       | lead(sevenpointtrend,2) == 1
-                                       | lead(sevenpointtrend,3) == 1
-                                       | lead(sevenpointtrend,4) == 1
-                                       | lead(sevenpointtrend,5) == 1
-                                       | lead(sevenpointtrend,6) == 1
+  }
+
+  df <- df %>%
+    mutate(closetolimits = case_when(data > upper2sigma & data <= upl ~ 1
+                                     ,data < lower2sigma & data >= lpl ~ -1
+
+    )
+    ) %>%
+    mutate(sevenpointtrend = case_when(relativetomean == lag(relativetomean,1)
+                                       & relativetomean == lag(relativetomean,2)
+                                       & relativetomean == lag(relativetomean,3)
+                                       & relativetomean == lag(relativetomean,4)
+                                       & relativetomean == lag(relativetomean,5)
+                                       & relativetomean == lag(relativetomean,6)
                                        ~ 1
                                        ,TRUE ~ 0
-        )
-        ) %>%
-        mutate(sixpointgrowth = case_when(data > lag(data,1)
-                                          & lag(data,1) > lag(data,2)
-                                          & lag(data,2) > lag(data,3)
-                                          & lag(data,3) > lag(data,4)
-                                          & lag(data,4) > lag(data,5)
-                                          & lag(data,5) > lag(data,6)
-                                          ~ 1
-                                          ,data < lag(data,1)
-                                          & lag(data,1) < lag(data,2)
-                                          & lag(data,2) < lag(data,3)
-                                          & lag(data,3) < lag(data,4)
-                                          & lag(data,4) < lag(data,5)
-                                          & lag(data,5) < lag(data,6)
-                                          ~ -1
-                                          ,TRUE ~ 0
-        )
-        ) %>%
-        mutate(partofgrowth = case_when(abs(sixpointgrowth) == 1
-                                        | abs(lead(sixpointgrowth,1)) == 1
-                                        | abs(lead(sixpointgrowth,2)) == 1
-                                        | abs(lead(sixpointgrowth,3)) == 1
-                                        | abs(lead(sixpointgrowth,4)) == 1
-                                        | abs(lead(sixpointgrowth,5)) == 1
-                                        #| lead(sevenpointgrowth,6) == 1
+    )
+    ) %>%
+    mutate(partoftrend = case_when(sevenpointtrend == 1
+                                   | lead(sevenpointtrend,1) == 1
+                                   | lead(sevenpointtrend,2) == 1
+                                   | lead(sevenpointtrend,3) == 1
+                                   | lead(sevenpointtrend,4) == 1
+                                   | lead(sevenpointtrend,5) == 1
+                                   | lead(sevenpointtrend,6) == 1
+                                   ~ 1
+                                   ,TRUE ~ 0
+    )
+    ) %>%
+    mutate(sixpointgrowth = case_when(data > lag(data,1)
+                                      & lag(data,1) > lag(data,2)
+                                      & lag(data,2) > lag(data,3)
+                                      & lag(data,3) > lag(data,4)
+                                      & lag(data,4) > lag(data,5)
+                                      & lag(data,5) > lag(data,6)
+                                      ~ 1
+                                      ,data < lag(data,1)
+                                      & lag(data,1) < lag(data,2)
+                                      & lag(data,2) < lag(data,3)
+                                      & lag(data,3) < lag(data,4)
+                                      & lag(data,4) < lag(data,5)
+                                      & lag(data,5) < lag(data,6)
+                                      ~ -1
+                                      ,TRUE ~ 0
+    )
+    ) %>%
+    mutate(partofgrowth = case_when(abs(sixpointgrowth) == 1
+                                    | abs(lead(sixpointgrowth,1)) == 1
+                                    | abs(lead(sixpointgrowth,2)) == 1
+                                    | abs(lead(sixpointgrowth,3)) == 1
+                                    | abs(lead(sixpointgrowth,4)) == 1
+                                    | abs(lead(sixpointgrowth,5)) == 1
+                                    #| lead(sevenpointgrowth,6) == 1
+                                    ~ 1
+                                    ,TRUE ~ 0
+    )
+    ) %>%
+    mutate(twointhree = case_when(closetolimits == 1
+                                  & (
+                                    lead(closetolimits,1) == 1
+                                    | lead(closetolimits,2) == 1
+                                  ) ~ 1
+                                  ,closetolimits == -1
+                                  & (
+                                    lead(closetolimits,1) == -1
+                                    | lead(closetolimits,2) == -1
+                                  )
+                                  ~ 1
+                                  ,closetolimits == 1
+                                  & (
+                                    lag(closetolimits,1) == 1
+                                    | lag(closetolimits,2) == 1
+                                  ) ~ 1
+                                  ,closetolimits == -1
+                                  & (
+                                    lag(closetolimits,1) == -1
+                                    | lag(closetolimits,2) == -1
+                                  )
+                                  ~ 1
+    )
+    ) %>%
+    #mutate(partoftwointhree = case_when(twointhree == 1 && lag(twointhree,1) == 1
+    #                              && (
+    #                                lead(closetolimits,1) == 1
+    #                                || lead(closetolimits,2) == 2
+    #                              ) ~ 1
+    #)
+    #) %>%
+    mutate(specialcauseflag = case_when(abs(outsidelimits) == 1
+                                        | abs(partoftrend) == 1
+                                        | abs(partofgrowth) == 1
+                                        | twointhree == 1
                                         ~ 1
-                                        ,TRUE ~ 0
-        )
-        ) %>%
-        mutate(twointhree = case_when(closetolimits == 1
-                                      & (
-                                          lead(closetolimits,1) == 1
-                                          | lead(closetolimits,2) == 1
-                                      ) ~ 1
-                                      ,closetolimits == -1
-                                      & (
-                                          lead(closetolimits,1) == -1
-                                          | lead(closetolimits,2) == -1
-                                      )
-                                      ~ 1
-                                      ,closetolimits == 1
-                                      & (
-                                          lag(closetolimits,1) == 1
-                                          | lag(closetolimits,2) == 1
-                                      ) ~ 1
-                                      ,closetolimits == -1
-                                      & (
-                                          lag(closetolimits,1) == -1
-                                          | lag(closetolimits,2) == -1
-                                      )
-                                      ~ 1
-        )
-        ) %>%
-        #mutate(partoftwointhree = case_when(twointhree == 1 && lag(twointhree,1) == 1
-        #                              && (
-        #                                lead(closetolimits,1) == 1
-        #                                || lead(closetolimits,2) == 2
-        #                              ) ~ 1
-        #)
-        #) %>%
-        mutate(specialcauseflag = case_when(abs(outsidelimits) == 1
-                                            | abs(partoftrend) == 1
-                                            | abs(partofgrowth) == 1
-                                            | twointhree == 1
-                                            ~ 1
-        )
-        ) %>%
-        mutate(specialcauseconcern = case_when(specialcauseflag == 1
-                                               & relativetomean == (improvementdirection * -1)
+    )
+    ) %>%
+    mutate(specialcauseconcern = case_when(specialcauseflag == 1
+                                           & relativetomean == (improvementdirection * -1)
+                                           ~ data
+    )
+
+    ) %>%
+    mutate(specialcauseimprovement = case_when(specialcauseflag == 1
+                                               & relativetomean == improvementdirection
                                                ~ data
-        )
-        
-        ) %>%
-        mutate(specialcauseimprovement = case_when(specialcauseflag == 1
-                                                   & relativetomean == improvementdirection
-                                                   ~ data
-        )
-        ) %>%
-        mutate(commoncause = case_when(specialcauseflag != 1
-                                       ~ data
-        )
-        )
-    xaxis <- as.Date(xaxis)
-    xaxisdisplay <- xaxis[seq(1,length(xaxis),x.axis.breaks)]
-    
-    # Create Plot ----
-    plot <- ggplot(df,aes(x=xaxis,y=data)) +
-        theme_classic() +
-        geom_line(color=.darkgrey,size=point.size/2.666666) +
-        geom_point(color=.darkgrey,size=point.size) +
-        geom_line(aes(y=upl),linetype = "dashed",size=point.size/2.666666,color=.darkgrey) +
-        geom_line(aes(y=lpl),linetype = "dashed",size=point.size/2.666666,color=.darkgrey) +
-        geom_line(aes(y=as.numeric(target)),linetype = "dashed",size=point.size/2.666666,color=.purple) +
-        geom_line(aes(y=trajectory),linetype = "dashed",size=point.size/2.666666,color=.red) +
-        geom_line(aes(y=mean)) +
-        #geom_line(aes(y=lower2sigma)) +
-        geom_point(aes(x=xaxis,y=df$specialcauseimprovement),color=.skyblue,size=point.size) +
-        geom_point(aes(x=xaxis,y=df$specialcauseconcern),color=.orange,size=point.size) +
-        ggtitle(label = plottitle) +
-        xlab(label = xlabel) +
-        ylab(label = ylabel) +
-        theme(plot.title = element_text(hjust = 0.5)) +
-        scale_x_date(breaks=xaxisdisplay) +
-        theme(axis.text.x = element_text(angle = 90, hjust = 1))
-    
-    if(display.legend == TRUE) {
-        plot <- plot +
-            geom_text(aes(y = mean
-                          ,label = c("Mean",rep(NA,length(mean)-1)))
-                      ,vjust = -0.5
-                      ,hjust = 0
-                      ,size = 4
-                      ,colour = "grey"
-                      ,family = "Arial") +
-            geom_text(aes(y = upl
-                          ,label = c("Upper Control Limit",rep(NA,length(mean)-1)))
-                      ,vjust = -0.5
-                      ,hjust = 0
-                      ,size = 4
-                      ,colour = "grey"
-                      ,family = "Arial") +
-            geom_text(aes(y = lpl
-                          ,label = c("Lower Control Limit",rep(NA,length(mean)-1)))
-                      ,vjust = -0.5
-                      ,hjust = 0
-                      ,size = 4
-                      ,colour = "grey"
-                      ,family = "Arial")
+    )
+    ) %>%
+    mutate(commoncause = case_when(specialcauseflag != 1
+                                   ~ data
+    )
+    )
+  xaxis <- as.Date(xaxis)
+  xaxisdisplay <- xaxis[seq(1,length(xaxis),x.axis.breaks)]
+
+  # Create Plot ----
+  plot <- ggplot(df,aes(x=xaxis,y=data)) +
+    theme_classic() +
+    geom_line(color=.darkgrey,size=point.size/2.666666) +
+    geom_point(color=.darkgrey,size=point.size) +
+    geom_line(aes(y=upl),linetype = "dashed",size=point.size/2.666666,color=.darkgrey) +
+    geom_line(aes(y=lpl),linetype = "dashed",size=point.size/2.666666,color=.darkgrey) +
+    geom_line(aes(y=as.numeric(target)),linetype = "dashed",size=point.size/2.666666,color=.purple) +
+    geom_line(aes(y=trajectory),linetype = "dashed",size=point.size/2.666666,color=.red) +
+    geom_line(aes(y=mean)) +
+    #geom_line(aes(y=lower2sigma)) +
+    geom_point(aes(x=xaxis,y=df$specialcauseimprovement),color=.skyblue,size=point.size) +
+    geom_point(aes(x=xaxis,y=df$specialcauseconcern),color=.orange,size=point.size) +
+    ggtitle(label = plottitle) +
+    xlab(label = xlabel) +
+    ylab(label = ylabel) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    scale_x_date(breaks=xaxisdisplay) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+  if(display.legend == TRUE) {
+    plot <- plot +
+      geom_text(aes(y = mean
+                ,label = c("Mean",rep(NA,length(mean)-1)))
+                ,vjust = -0.5
+                ,hjust = 0
+                ,size = 4
+                ,colour = "grey"
+                ,family = "Arial") +
+      geom_text(aes(y = upl
+                ,label = c("Upper Control Limit",rep(NA,length(mean)-1)))
+                ,vjust = -0.5
+                ,hjust = 0
+                ,size = 4
+                ,colour = "grey"
+                ,family = "Arial") +
+      geom_text(aes(y = lpl
+                ,label = c("Lower Control Limit",rep(NA,length(mean)-1)))
+                ,vjust = -0.5
+                ,hjust = 0
+                ,size = 4
+                ,colour = "grey"
+                ,family = "Arial")
+  }
+
+  if(!(is.null(target)) && display.legend == TRUE) {
+    plot <- plot +
+      geom_text(aes(y = target
+                    ,label = c("Target",rep(NA,length(mean)-1)))
+                ,vjust = -0.5
+                ,hjust = 0
+                ,size = 4
+                ,colour = .purple
+                ,family = "Arial")
     }
-    
-    if(!(is.null(target)) && display.legend == TRUE) {
-        plot <- plot +
-            geom_text(aes(y = target
-                          ,label = c("Target",rep(NA,length(mean)-1)))
-                      ,vjust = -0.5
-                      ,hjust = 0
-                      ,size = 4
-                      ,colour = .purple
-                      ,family = "Arial")
-    }
-    
-    if(data.as.percentages == TRUE){
-        upperlimit <- max(data,na.rm = TRUE)*2
-        if(is.na(upperlimit)) {upperlimit <- 1}
-        upper <- max(x,na.rm = TRUE)
-        lower <- min(x,na.rm = TRUE)
-        interval <- plyr::round_any((upper-lower)/10,0.01)
-        if(interval <= 0){interval <- 0.01}
-        #print(upperlimit)
-        plot <- plot +
-            scale_y_continuous(labels = scales::percent,breaks = seq(from = 0,to = upperlimit,by = interval))
-    }
-    
-    if(return.table == FALSE) {return(plot)}
-    
-    if(return.table == TRUE) {
-        data.frame(
-            Index = df$n
-            ,Date = df$xaxislabels
-            ,Data = df$data
-            ,Mean = df$mean
-            ,"Upper Process Limit" = df$upl
-            ,"Lower Process Limit" = df$lpl
-        )
-    }
-    
+
+  if(data.as.percentages == TRUE){
+    upperlimit <- max(data,na.rm = TRUE)*2
+    if(is.na(upperlimit)) {upperlimit <- 1}
+    upper <- max(x,na.rm = TRUE)
+    lower <- min(x,na.rm = TRUE)
+    interval <- plyr::round_any((upper-lower)/10,0.01)
+    if(interval <= 0){interval <- 0.01}
+    #print(upperlimit)
+    plot <- plot +
+      scale_y_continuous(labels = scales::percent,breaks = seq(from = 0,to = upperlimit,by = interval))
+  }
+
+  if(return.table == FALSE) {return(plot)}
+
+  if(return.table == TRUE) {
+    data.frame(
+      Index = df$n
+      ,Date = df$xaxislabels
+      ,Data = df$data
+      ,Mean = df$mean
+      ,"Upper Process Limit" = df$upl
+      ,"Lower Process Limit" = df$lpl
+    )
+  }
+
 }
+
 
 
 ## Matrix lkup for small multiples
