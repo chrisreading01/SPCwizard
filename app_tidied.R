@@ -4,6 +4,8 @@ library(shinydashboard)
 library(shinyWidgets)
 library(data.table)
 library(DT)
+library(dplyr)
+library(ggplot2)
 
 ## Create SPC function
 spc <- function(
